@@ -17,16 +17,40 @@ class ArxivScraper(BaseCrawler):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    async def fetch_papers(self, query: str = "all:AI", max_results: int = 100) -> List[ResearchPaperEntity]:
-        params = {
-            "search_query": query,
-            "start": 0,
-            "max_results": max_results,
-            "sortBy": "submittedDate",
-            "sortOrder": "descending"
-        }
-        xml_data = await self.fetch(self.BASE_URL, params=params)
-        return await self._parse_arxiv_xml(xml_data)
+    async def fetch_papers(self, query: str = "all:AI", max_results: int = 1000) -> List[ResearchPaperEntity]:
+        all_papers = []
+        start = 0
+        # Arxiv allows up to 2000 per request, but 100-200 is safer for stability
+        chunk_size = min(max_results, 200)
+        
+        logger.info(f"Starting massive extraction of {max_results} research papers via Arxiv API...")
+        while len(all_papers) < max_results:
+            params = {
+                "search_query": query,
+                "start": start,
+                "max_results": chunk_size,
+                "sortBy": "submittedDate",
+                "sortOrder": "descending"
+            }
+            try:
+                xml_data = await self.fetch(self.BASE_URL, params=params)
+                papers = await self._parse_arxiv_xml(xml_data)
+                
+                if not papers:
+                    logger.warning(f"Arxiv API returned no more results at offset {start}.")
+                    break
+                    
+                all_papers.extend(papers)
+                start += chunk_size
+                logger.info(f"Progress: Fetched {len(all_papers)} / {max_results} papers...")
+                
+                # Polite rate limiting to avoid getting banned
+                await asyncio.sleep(1)
+            except Exception as e:
+                logger.error(f"Error during Arxiv pagination at offset {start}: {e}")
+                break
+                
+        return all_papers[:max_results]
 
     async def _parse_arxiv_xml(self, xml_content: str) -> List[ResearchPaperEntity]:
         soup = BeautifulSoup(xml_content, "xml")
@@ -40,18 +64,26 @@ class ArxivScraper(BaseCrawler):
                 paper_url = entry.id.text.strip()
                 published_date = datetime.strptime(entry.published.text, "%Y-%m-%dT%H:%M:%SZ")
                 
+                abstract = entry.summary.text if entry.summary else ""
+                
+                # Try to extract github link directly from abstract
+                import re
+                github_url = None
+                match = re.search(r'github\.com/([\w-]+/[\w-]+)', abstract)
+                if match:
+                    github_url = f"https://github.com/{match.group(1)}"
+                
                 content = ResearchPaperContent(
                     title=title,
                     authors=authors,
                     paper_url=paper_url,
                     published_date=published_date,
-                    github_url=None, # Will be correlated later
+                    github_url=github_url, # Now accurately extracted from text if present
                     github_stars=None
                 )
                 
                 results.append(ResearchPaperEntity(
-                    content=content,
-                    collectedAt=datetime.utcnow()
+                    content=content
                 ))
             except Exception as e:
                 logger.error(f"Error parsing arxiv entry: {e}")
@@ -59,8 +91,34 @@ class ArxivScraper(BaseCrawler):
         return results
 
     async def correlate_github(self, paper: ResearchPaperEntity) -> ResearchPaperEntity:
-        # Mock correlation logic for demo (Papers with Code API would be used here)
-        # Assuming correlation finds a github URL
-        paper.content.github_url = "https://github.com/example/repo"
-        paper.content.github_stars = 420
+        import re
+        import os
+        import aiohttp
+        
+        if not paper.content.github_url:
+            return paper
+            
+        match = re.search(r'github\.com/([\w-]+/[\w-]+)', paper.content.github_url)
+        if not match:
+            return paper
+            
+        owner_repo = match.group(1)
+        api_url = f"https://api.github.com/repos/{owner_repo}"
+        
+        headers = {"User-Agent": "AtlasIngestBot/1.0"}
+        token = os.getenv("GITHUB_TOKEN")
+        if token:
+            headers["Authorization"] = f"token {token}"
+            
+        try:
+            session = await self.get_session()
+            async with session.get(api_url, headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    paper.content.github_stars = data.get("stargazers_count")
+                elif response.status == 403:
+                    logger.warning(f"GitHub API rate limit hit while fetching {owner_repo}")
+        except Exception as e:
+            logger.error(f"Error fetching GitHub stars for {owner_repo}: {e}")
+            
         return paper

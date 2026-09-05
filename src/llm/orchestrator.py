@@ -14,8 +14,8 @@ class LLMOrchestrator:
     
     # Fallback chain prioritizing cost/speed to complex reasoning
     MODELS = [
-        "gemini/gemini-1.5-flash",
-        "groq/llama3-8b-8192",
+        "gemini/gemini-1.5-flash-002",
+        "groq/llama-3.1-8b-instant",
         "deepseek/deepseek-chat"
     ]
 
