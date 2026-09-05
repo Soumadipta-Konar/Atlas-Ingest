@@ -1,9 +1,11 @@
-# FrontierAtlas: Technical Architecture & Production Design
+# Atlas-Ingest: Technical Architecture & Production Design
 
-This document details the production architecture for the GraphOne/FrontierAtlas data ingestion pipeline, designed for resilience, horizontal scalability, and high-fidelity extraction.
+This document details the production architecture for the Atlas-Ingest data ingestion pipeline, designed for resilience, horizontal scalability, and high-fidelity extraction.
 
-## 1. Scale Strategy (500,000+ Records)
-To scale this architecture to "lakhs" of records without manual intervention or code changes, we transition from a monolithic local execution model to a distributed, event-driven microservices architecture.
+> **Note:** Sections 1, 3, and 4 describe the **production roadmap** for scaling Atlas-Ingest to 500,000+ records. The current implementation covers the core pipeline (crawling, LLM extraction, entity resolution, and export). The scaling strategies below are designed and documented for future implementation.
+
+## 1. Scale Strategy (500,000+ Records) — *Planned*
+To scale this architecture to "lakhs" of records without manual intervention or code changes, the roadmap transitions from a monolithic local execution model to a distributed, event-driven microservices architecture.
 - **Message Broker (Kafka/RabbitMQ):** URL seeds and API tasks are pushed to distributed queues (e.g., `url_ingestion_queue`, `llm_processing_queue`). 
 - **Horizontal Scaling:** We deploy stateless crawler workers on Kubernetes (K8s). As the queue depth increases, Kubernetes Horizontal Pod Autoscaler (HPA) dynamically provisions more crawler pods.
 - **Proxy Rotation & IP Management:** For heavy directories (ProductHunt, YC), workers route requests through a residential proxy network (e.g., BrightData or Oxylabs) to distribute IP fingerprints and avoid Datadome/Cloudflare blanket bans.

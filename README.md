@@ -99,7 +99,7 @@ Bypasses LLM hallucination risks for temporal data by utilizing strict XML/RSS p
 <details>
 <summary><b>src/crawlers/directory_scraper.py</b> — Playwright-Powered Directory Crawler</summary>
 <br>
-Handles JavaScript-rendered startup and product directories (YCombinator, ProductHunt) using headless <code>Playwright</code> browsers. Supports configurable concurrency limits and automatic pagination for large-scale scraping.
+Handles JavaScript-rendered startup and product directories (YCombinator, ProductHunt) using headless <code>Playwright</code> browsers. Supports configurable concurrency limits and automatic pagination (via <code>rel="next"</code> discovery and <code>?page=N</code> fallback) for multi-page scraping.
 </details>
 
 <details>
@@ -163,7 +163,7 @@ Crawls directories and APIs to extract structured entity data at scale.
 python main.py batch-extract [--run-papers] [--run-startups] [--run-products]
                              [--topic TOPIC] [--max-records N]
                              [--startups-url URL] [--products-url URL]
-                             [--ecommerce]
+                             [--ecommerce] [--seed-file PATH]
 ```
 
 #### Flags
@@ -178,6 +178,7 @@ python main.py batch-extract [--run-papers] [--run-startups] [--run-products]
 | `--startups-url` | `str` | `https://www.ycombinator.com/companies` | Source URL for startup directory scraping |
 | `--products-url` | `str` | `https://www.producthunt.com` | Source URL for product directory scraping |
 | `--ecommerce` | `bool` | `False` | Use E-commerce product schema instead of AI software schema |
+| `--seed-file` | `str` | `None` | Path to a JSON file with canonical entity names for resolution |
 
 #### Quick Start
 
@@ -298,6 +299,9 @@ python main.py live-monitor
 
 # 6. E-commerce product extraction from a custom URL
 python main.py batch-extract --run-products --ecommerce --products-url "https://www.producthunt.com/topics/developer-tools" --max-records 150
+
+# 7. Use a custom seed file for entity resolution
+python main.py batch-extract --run-startups --max-records 100 --seed-file seeds.json
 ```
 
 ---
@@ -310,7 +314,7 @@ All outputs strictly conform to the assignment grading rubric:
 |---|---|
 | `output/*.csv` | 100% schema-compliant datasets ready for Google Sheets import |
 | `output/entity_mappings.csv` | Comprehensive Entity Mapping resolution log |
-| `architecture.md` / `.pdf` | 3-page system design document scaling to 500,000+ records, detailing Bloom Filters, Proxies, and Vector databases |
+| `architecture.md` / `.pdf` | System design document with scaling strategies (Bloom Filters, Proxies, Vector DB) scoped as future production roadmap |
 
 ---
 

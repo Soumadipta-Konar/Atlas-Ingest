@@ -9,26 +9,23 @@ class DataExporter:
     """Exports structured entities to pandas DataFrames and CSVs."""
     
     @staticmethod
+    def _flatten(d: dict, parent_key: str = "") -> dict:
+        """Recursively flattens an arbitrarily-nested dict using dot notation."""
+        items = {}
+        for k, v in d.items():
+            new_key = f"{parent_key}.{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.update(DataExporter._flatten(v, new_key))
+            else:
+                items[new_key] = v
+        return items
+
+    @staticmethod
     def entities_to_df(entities: List[BaseModel]) -> pd.DataFrame:
-        """Flattens nested pydantic models into a 2D dataframe."""
+        """Flattens nested pydantic models (at any depth) into a 2D dataframe."""
         if not entities:
             return pd.DataFrame()
-            
-        # Convert to dict and flatten nested 'source' and 'content' keys
-        flattened_data = []
-        for entity in entities:
-            raw_dict = entity.model_dump()
-            flat_dict = {}
-            for k, v in raw_dict.items():
-                if isinstance(v, dict):
-                    for sub_k, sub_v in v.items():
-                        # Flatten with dot notation e.g., 'content.entityName'
-                        flat_dict[f"{k}.{sub_k}"] = sub_v
-                else:
-                    flat_dict[k] = v
-            flattened_data.append(flat_dict)
-            
-        return pd.DataFrame(flattened_data)
+        return pd.DataFrame([DataExporter._flatten(e.model_dump()) for e in entities])
 
     @staticmethod
     def export_csv(df: pd.DataFrame, filename: str):

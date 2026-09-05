@@ -1,7 +1,10 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import re
-from typing import List, Optional
+from typing import List, Optional, Any
+
+# Indian Standard Time (UTC+05:30)
+IST = timezone(timedelta(hours=5, minutes=30))
 from .base import BaseCrawler
 
 logger = logging.getLogger(__name__)
@@ -11,7 +14,7 @@ class DateNormalizer:
     
     @staticmethod
     def normalize(date_str: Optional[str]) -> datetime:
-        now = datetime.utcnow()
+        now = datetime.now(IST)
         if not date_str:
             # Intelligent Heuristic: Assume now if totally missing but found in fresh scrape
             return now
@@ -34,15 +37,15 @@ class DateNormalizer:
             from email.utils import parsedate_to_datetime
             dt = parsedate_to_datetime(date_str)
             if dt.tzinfo:
-                # Convert to UTC and remove tzinfo to match datetime.utcnow()
-                dt = (dt - dt.utcoffset()).replace(tzinfo=None)
+                # Convert to IST
+                dt = dt.astimezone(IST)
             return dt
         except Exception:
             pass
             
         try:
             # Fallback to standard parsing (can be extended with dateutil)
-            return datetime.fromisoformat(date_str.replace("Z", "+00:00")).replace(tzinfo=None)
+            return datetime.fromisoformat(date_str.replace("Z", "+00:00")).astimezone(IST)
         except ValueError:
             logger.warning(f"Could not parse date: {date_str}, defaulting to now")
             return now
@@ -56,7 +59,7 @@ class NewsJobsScraper(BaseCrawler):
 
     def is_fresh(self, dt: datetime) -> bool:
         """Enforces the 24-hour strict freshness challenge."""
-        return datetime.utcnow() - dt <= timedelta(hours=24)
+        return datetime.now(IST) - dt <= timedelta(hours=24)
 
     async def scrape_rss_news(self, url: str, source_name: str) -> List[Any]:
         """Scrapes news from an RSS feed."""
@@ -103,7 +106,7 @@ class NewsJobsScraper(BaseCrawler):
                         published_date=published_date,
                         summary=desc
                     ),
-                    collectedAt=datetime.utcnow()
+                    collectedAt=datetime.now(IST)
                 )
                 results.append(entity)
                 
@@ -155,6 +158,8 @@ class NewsJobsScraper(BaseCrawler):
                     company = match.group(1).strip()
                 
                 entity = JobEntity(
+                    source=Source(name=source_name, url=url),
+                    collectedAt=datetime.now(IST),
                     content=JobContent(
                         company=company,
                         date=published_date,

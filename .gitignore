@@ -6,3 +6,5 @@ output/
 .DS_Store
 doc/
 .pdf
+
+atlas-ingest-issues-and-fixes.md

@@ -24,7 +24,7 @@ async def run_phase1(args):
     arxiv_crawler = ArxivScraper(concurrency_limit=10)
     directory_crawler = DirectoryScraper(concurrency_limit=10, use_playwright=True)
     orchestrator = LLMOrchestrator()
-    resolver = EntityResolver()
+    resolver = EntityResolver(seed_file=getattr(args, 'seed_file', None))
     
     # 1. Research Papers
     if args.run_papers:
@@ -117,7 +117,7 @@ async def run_phase2(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="GraphOne / FrontierAtlas Intelligence Ingestion Pipeline",
+        description="Atlas-Ingest — AI Intelligence Ingestion Pipeline",
         formatter_class=argparse.RawTextHelpFormatter
     )
     
@@ -138,6 +138,7 @@ def main():
     parser_batch.add_argument("--run-startups", action="store_true", help="Execute Startups extraction")
     parser_batch.add_argument("--run-products", action="store_true", help="Execute Products extraction")
     parser_batch.add_argument("--ecommerce", action="store_true", help="Use Ecommerce Product schema instead of AI Software schema")
+    parser_batch.add_argument("--seed-file", type=str, default=None, help="Path to a JSON file containing canonical entity names for resolution")
     
     # Live Monitor Subcommand
     parser_live = subparsers.add_parser("live-monitor", help="Run High-Fidelity Signal Ingestion (24h Freshness)")

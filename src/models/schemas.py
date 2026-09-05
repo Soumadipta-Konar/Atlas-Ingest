@@ -1,7 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
+
+# Indian Standard Time (UTC+05:30)
+IST = timezone(timedelta(hours=5, minutes=30))
 
 class PricingModel(str, Enum):
     FREE = "FREE"
@@ -15,6 +18,10 @@ class Source(BaseModel):
 
 class StartupData(BaseModel):
     employeeCount: Optional[int] = None
+    foundedYear: Optional[int] = None
+    fundingTotal: Optional[str] = None
+    fundingStage: Optional[str] = None
+    description: Optional[str] = None
 
 class StartupContent(BaseModel):
     entityName: str
@@ -86,4 +93,6 @@ class JobContent(BaseModel):
 class JobEntity(BaseModel):
     schemaVersion: str = "1.0"
     recordType: Literal["JOB"] = "JOB"
+    source: Optional[Source] = None
     content: JobContent
+    collectedAt: Optional[datetime] = None

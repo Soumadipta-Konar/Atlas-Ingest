@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 
 from .base import BaseCrawler
@@ -62,7 +62,8 @@ class ArxivScraper(BaseCrawler):
                 title = entry.title.text.strip().replace("\n", " ")
                 authors = [author.find("name").text for author in entry.find_all("author")]
                 paper_url = entry.id.text.strip()
-                published_date = datetime.strptime(entry.published.text, "%Y-%m-%dT%H:%M:%SZ")
+                IST = timezone(timedelta(hours=5, minutes=30))
+                published_date = datetime.strptime(entry.published.text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).astimezone(IST)
                 
                 abstract = entry.summary.text if entry.summary else ""
                 
