@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from typing import Type, TypeVar, Any
+from typing import Type, TypeVar, Any, Optional
 from pydantic import BaseModel
 import litellm
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type

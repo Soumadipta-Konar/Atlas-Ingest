@@ -16,6 +16,7 @@ python-Levenshtein = "^0.25.0"
 pandas = "^2.2.1"
 tenacity = "^8.2.3"
 beautifulsoup4 = "^4.12.3"
+python-dotenv = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"

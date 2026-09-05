@@ -1,13 +1,18 @@
 import asyncio
 import logging
 import os
-from src.crawlers.arxiv_scraper import ArxivScraper
-from src.crawlers.news_jobs_scraper import NewsJobsScraper
-from src.llm.orchestrator import LLMOrchestrator
-from src.llm.chunking import ContentChunker
-from src.resolution.resolver import EntityResolver
-from src.utils.exporter import DataExporter
-from src.models.schemas import JobEntity
+
+from src.crawlers.arxiv_scraper import ArxivScraper  # type: ignore
+from src.crawlers.news_jobs_scraper import NewsJobsScraper  # type: ignore
+from src.llm.orchestrator import LLMOrchestrator  # type: ignore
+from src.llm.chunking import ContentChunker  # type: ignore
+from src.resolution.resolver import EntityResolver  # type: ignore
+from src.utils.exporter import DataExporter  # type: ignore
+from src.models.schemas import JobEntity  # type: ignore
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -62,7 +67,7 @@ async def run_pipeline():
     for chunk in chunks:
         # Require API key to actually run litellm, wrapping in try/except for local execution
         try:
-            job: JobEntity = await orchestrator.extract_entity(chunk, JobEntity)
+            job = await orchestrator.extract_entity(chunk, JobEntity)
             if job:
                 # Phase IV: Entity Resolution
                 canonical_company = resolver.canonicalize(job.content.company)

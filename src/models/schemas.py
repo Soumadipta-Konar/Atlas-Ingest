@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 
 class PricingModel(str, Enum):
@@ -22,7 +22,7 @@ class StartupContent(BaseModel):
 
 class StartupEntity(BaseModel):
     schemaVersion: str = "1.0"
-    recordType: str = Field(default="STARTUP", Literal=True)
+    recordType: Literal["STARTUP"] = "STARTUP"
     source: Source
     content: StartupContent
     collectedAt: datetime
@@ -33,7 +33,7 @@ class ProductContent(BaseModel):
 
 class ProductEntity(BaseModel):
     schemaVersion: str = "1.0"
-    recordType: str = Field(default="PRODUCT", Literal=True)
+    recordType: Literal["PRODUCT"] = "PRODUCT"
     source: Source
     content: ProductContent
     collectedAt: datetime
@@ -48,7 +48,7 @@ class ResearchPaperContent(BaseModel):
 
 class ResearchPaperEntity(BaseModel):
     schemaVersion: str = "1.0"
-    recordType: str = Field(default="RESEARCH_PAPER", Literal=True)
+    recordType: Literal["RESEARCH_PAPER"] = "RESEARCH_PAPER"
     content: ResearchPaperContent
     collectedAt: datetime
 
@@ -60,6 +60,6 @@ class JobContent(BaseModel):
 
 class JobEntity(BaseModel):
     schemaVersion: str = "1.0"
-    recordType: str = Field(default="JOB", Literal=True)
+    recordType: Literal["JOB"] = "JOB"
     content: JobContent
     collectedAt: datetime
