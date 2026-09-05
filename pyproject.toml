@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "atlas-ingest"
+version = "0.1.0"
+description = "GraphOne / FrontierAtlas Ingestion Pipeline"
+authors = ["Soumadipta Konar <soumadipta.konar2005@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiohttp = "^3.9.3"
+playwright = "^1.42.0"
+litellm = "^1.30.2"
+tiktoken = "^0.6.0"
+pydantic = "^2.6.3"
+thefuzz = "^0.22.1"
+python-Levenshtein = "^0.25.0"
+pandas = "^2.2.1"
+tenacity = "^8.2.3"
+beautifulsoup4 = "^4.12.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+pytest-asyncio = "^0.23.5"
+black = "^24.2.0"
+mypy = "^1.9.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

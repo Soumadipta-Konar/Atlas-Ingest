@@ -1,0 +1,11 @@
+aiohttp>=3.9.3
+playwright>=1.42.0
+litellm>=1.30.2
+tiktoken>=0.6.0
+pydantic>=2.6.3
+thefuzz>=0.22.1
+python-Levenshtein>=0.25.0
+pandas>=2.2.1
+tenacity>=8.2.3
+beautifulsoup4>=4.12.3
+lxml>=5.1.0
