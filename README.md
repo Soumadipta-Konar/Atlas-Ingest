@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Architecture-Distributed%20Crawler-1F8A70?style=for-the-badge" alt="Architecture">
   <img src="https://img.shields.io/badge/LLM-Multi--Tier%20Fallback-DE9B34?style=for-the-badge" alt="LLM Extraction">
   <img src="https://img.shields.io/badge/Resilience-Tenacity%20+%20Backoff-E74C3C?style=for-the-badge" alt="Resilience">
-  <a href="https://docs.google.com/spreadsheets/d/1eIW1Ym208gIo5MoaTAH6wuA1R5UdGu5dXM0w-myZ4oU/edit?gid=694287112#gid=694287112" target="_blank">
+  <a href="https://docs.google.com/spreadsheets/d/1eIW1Ym208gIo5MoaTAH6wuA1R5UdGu5dXM0w-myZ4oU/edit?gid=0#gid=0" target="_blank">
     <img src="https://img.shields.io/badge/Live%20Demo-Google%20Sheets-34A853?style=for-the-badge&logo=googlesheets&logoColor=white" alt="Google Sheets Live Demo">
   </a>
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License">
@@ -17,7 +17,7 @@
 ## 📊 Live Demo (Google Sheets)
 
 > 🔗 **Interactive Multi-Tab Knowledge Base:**  
-> [**Open Live Ingested Dataset in Google Sheets**](https://docs.google.com/spreadsheets/d/1eIW1Ym208gIo5MoaTAH6wuA1R5UdGu5dXM0w-myZ4oU/edit?gid=694287112#gid=694287112)
+> [**Open Live Ingested Dataset in Google Sheets**](https://docs.google.com/spreadsheets/d/1eIW1Ym208gIo5MoaTAH6wuA1R5UdGu5dXM0w-myZ4oU/edit?gid=0#gid=0)
 >
 > Includes all 6 synchronized output collections:
 > - `startups` (1,000 YC entities)
@@ -331,7 +331,7 @@ All outputs strictly conform to the assignment grading rubric:
 
 | Deliverable | Description | Access Link |
 |---|---|---|
-| **Google Sheets Live Demo** | Complete 6-tab synchronized live dataset | [**Open Google Sheet**](https://docs.google.com/spreadsheets/d/1eIW1Ym208gIo5MoaTAH6wuA1R5UdGu5dXM0w-myZ4oU/edit?gid=694287112#gid=694287112) |
+| **Google Sheets Live Demo** | Complete 6-tab synchronized live dataset | [**Open Google Sheet**](https://docs.google.com/spreadsheets/d/1eIW1Ym208gIo5MoaTAH6wuA1R5UdGu5dXM0w-myZ4oU/edit?gid=0#gid=0) |
 | `output/*.csv` | 100% schema-compliant datasets (startups, products, papers, news, jobs) | `output/` directory |
 | `output/entity_mappings.csv` | Comprehensive Entity Mapping resolution log | [`output/entity_mappings.csv`](output/entity_mappings.csv) |
 | `architecture.md` / `.pdf` | System design document with scaling strategies & topology diagrams | [`architecture.pdf`](architecture.pdf) |
