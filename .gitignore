@@ -6,4 +6,6 @@ output/
 .DS_Store
 doc/
 .pdf
+!architecture.pdf
 .md
+convert_pdf.py
