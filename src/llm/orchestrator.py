@@ -3,7 +3,7 @@ import asyncio
 from typing import Type, TypeVar, Any, Optional
 from pydantic import BaseModel
 import litellm
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential_jitter, retry_if_exception_type
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class LLMOrchestrator:
         
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
+        wait=wait_exponential_jitter(initial=2, max=10, jitter=2),
         retry=retry_if_exception_type(litellm.RateLimitError),
         reraise=True
     )

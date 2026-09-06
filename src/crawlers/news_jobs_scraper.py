@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 import re
 from typing import List, Optional, Any
+import trafilatura
 
 # Indian Standard Time (UTC+05:30)
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -45,7 +46,8 @@ class DateNormalizer:
             
         try:
             # Fallback to standard parsing (can be extended with dateutil)
-            return datetime.fromisoformat(date_str.replace("Z", "+00:00")).astimezone(IST)
+            # Handle both 'Z' and 'z' suffixes after the earlier .lower() call
+            return datetime.fromisoformat(date_str.replace("z", "+00:00")).astimezone(IST)
         except ValueError:
             logger.warning(f"Could not parse date: {date_str}, defaulting to now")
             return now
@@ -61,8 +63,17 @@ class NewsJobsScraper(BaseCrawler):
         """Enforces the 24-hour strict freshness challenge."""
         return datetime.now(IST) - dt <= timedelta(hours=24)
 
+    async def fetch_full_text(self, url: str) -> Optional[str]:
+        """Fetches and extracts full article text from a URL using trafilatura."""
+        try:
+            html = await self.fetch(url)
+            return trafilatura.extract(html)
+        except Exception as e:
+            logger.warning(f"Full-text fetch failed for {url}: {e}")
+            return None
+
     async def scrape_rss_news(self, url: str, source_name: str) -> List[Any]:
-        """Scrapes news from an RSS feed."""
+        """Scrapes news from an RSS feed, fetching full article text."""
         from src.models.schemas import NewsEntity, NewsContent, Source
         from bs4 import BeautifulSoup
         
@@ -97,6 +108,11 @@ class NewsJobsScraper(BaseCrawler):
                     continue
                     
                 desc = desc_node.text.strip()[:500] if desc_node else None
+
+                # Fetch full article text (capped at 5,000 chars to avoid sheet bloat)
+                full_text = await self.fetch_full_text(link) if link else None
+                if full_text:
+                    full_text = full_text[:5000]
                 
                 entity = NewsEntity(
                     source=Source(name=source_name, url=url),
@@ -104,7 +120,8 @@ class NewsJobsScraper(BaseCrawler):
                         title=title,
                         url=link,
                         published_date=published_date,
-                        summary=desc
+                        summary=desc,
+                        full_text=full_text
                     ),
                     collectedAt=datetime.now(IST)
                 )
@@ -134,6 +151,7 @@ class NewsJobsScraper(BaseCrawler):
                 title_node = item.find("title")
                 link_node = item.find("link")
                 pubDate_node = item.find("pubDate") or item.find("updated") or item.find("published")
+                desc_node = item.find("description") or item.find("summary")
                 
                 if not title_node or not link_node:
                     continue
@@ -156,6 +174,10 @@ class NewsJobsScraper(BaseCrawler):
                 match = re.search(r'(?i)\bat\s+([A-Za-z0-9 ]+)', title)
                 if match:
                     company = match.group(1).strip()
+
+                # Derive is_remote from actual title/description text — do not assume
+                desc_text = desc_node.text if desc_node else ""
+                is_remote = bool(re.search(r'\bremote\b', title + " " + desc_text, re.IGNORECASE))
                 
                 entity = JobEntity(
                     source=Source(name=source_name, url=url),
@@ -163,7 +185,7 @@ class NewsJobsScraper(BaseCrawler):
                     content=JobContent(
                         company=company,
                         date=published_date,
-                        is_remote=True,  # Most tech RSS jobs are remote
+                        is_remote=is_remote,
                         role_family="Engineering" if "engineer" in title.lower() or "developer" in title.lower() else "Other"
                     )
                 )

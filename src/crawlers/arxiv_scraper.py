@@ -123,3 +123,26 @@ class ArxivScraper(BaseCrawler):
             logger.error(f"Error fetching GitHub stars for {owner_repo}: {e}")
             
         return paper
+
+    async def enrich_from_paperswithcode(self, paper: ResearchPaperEntity) -> ResearchPaperEntity:
+        """Enriches a paper with GitHub URL from Papers with Code public API, keyed by Arxiv ID.
+        
+        This directly closes the brief's explicit requirement to extract data from
+        Papers with Code, and gives much better GitHub-link coverage than regex-only
+        abstract scanning.
+        """
+        arxiv_id = paper.content.paper_url.rstrip("/").split("/")[-1]
+        api_url = f"https://paperswithcode.com/api/v1/papers/{arxiv_id}/repositories/"
+        try:
+            session = await self.get_session()
+            async with session.get(api_url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    repos = data.get("results", [])
+                    if repos and not paper.content.github_url:
+                        paper.content.github_url = repos[0]["url"]
+                        logger.debug(f"PWC: found GitHub repo for {arxiv_id}: {repos[0]['url']}")
+        except Exception as e:
+            logger.warning(f"PWC lookup failed for {arxiv_id}: {e}")
+        return paper
+

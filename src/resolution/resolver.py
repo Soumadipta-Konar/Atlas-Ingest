@@ -35,7 +35,27 @@ DEFAULT_SEED_ENTITIES = [
     "Galileo AI",
     "Snorkel AI",
     "Mosaic ML",
-    "Lightning AI"
+    "Lightning AI",
+    "Aleph Alpha",
+    "AI21 Labs",
+    "Imbue",
+    "Contextual AI",
+    "Descript",
+    "ElevenLabs",
+    "Pika Labs",
+    "Luma AI",
+    "Synthesia",
+    "Twelve Labs",
+    "Tome",
+    "Glean",
+    "Vectara",
+    "Qdrant",
+    "Chroma",
+    "LlamaIndex",
+    "Fixie AI",
+    "Dust",
+    "Comet ML",
+    "Superagent"
 ]
 
 class EntityResolver:

@@ -30,9 +30,24 @@ async def run_phase1(args):
     if args.run_papers:
         logger.info(f"Fetching Research Papers for topic: '{args.topic}'")
         papers = await arxiv_crawler.fetch_papers(query=f"all:{args.topic}", max_results=args.max_records)
-        papers_with_github = []
-        for paper in papers:
-            papers_with_github.append(await arxiv_crawler.correlate_github(paper))
+
+        # Enrich with Papers with Code (concurrent, semaphore-bounded)
+        sem = asyncio.Semaphore(10)
+
+        async def bound_pwc(p):
+            async with sem:
+                return await arxiv_crawler.enrich_from_paperswithcode(p)
+
+        async def bound_correlate(p):
+            async with sem:
+                return await arxiv_crawler.correlate_github(p)
+
+        logger.info("Enriching papers from Papers with Code (concurrent)...")
+        papers = await asyncio.gather(*[bound_pwc(p) for p in papers])
+
+        logger.info("Correlating GitHub stars (concurrent)...")
+        papers_with_github = await asyncio.gather(*[bound_correlate(p) for p in papers])
+
         df_papers = DataExporter.entities_to_df(papers_with_github)
         DataExporter.export_csv(df_papers, "output/research_papers.csv")
     

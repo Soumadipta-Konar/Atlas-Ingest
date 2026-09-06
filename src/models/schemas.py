@@ -76,6 +76,7 @@ class NewsContent(BaseModel):
     url: str
     published_date: datetime
     summary: Optional[str] = None
+    full_text: Optional[str] = None
 
 class NewsEntity(BaseModel):
     schemaVersion: str = "1.0"
