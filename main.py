@@ -29,7 +29,7 @@ async def run_phase1(args):
     # 1. Research Papers
     if args.run_papers:
         logger.info(f"Fetching Research Papers for topic: '{args.topic}'")
-        papers = await arxiv_crawler.fetch_papers(query=f"all:{args.topic}", max_results=args.max_records)
+        papers = await arxiv_crawler.fetch_papers(query=f'all:"{args.topic}"', max_results=args.max_records)
 
         # Enrich with Papers with Code (concurrent, semaphore-bounded)
         sem = asyncio.Semaphore(10)

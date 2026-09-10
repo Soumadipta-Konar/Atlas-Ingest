@@ -8,8 +8,14 @@ function App() {
   const [activeTab, setActiveTab] = useState('startups');
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
+  
+  const [runTarget, setRunTarget] = useState('papers');
+  const [runTopic, setRunTopic] = useState('');
+  const [runMax, setRunMax] = useState('');
+  const [running, setRunning] = useState(false);
+  const [runLog, setRunLog] = useState('');
 
-  useEffect(() => {
+  const fetchData = () => {
     setLoading(true);
     axios.get(`${API_BASE}/${activeTab}`)
       .then(res => {
@@ -20,12 +26,69 @@ function App() {
         console.error(err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchData();
   }, [activeTab]);
+
+  const handleRun = async () => {
+    setRunning(true);
+    setRunLog('Executing pipeline...\n');
+    try {
+      const res = await axios.post(`${API_BASE}/run`, {
+        target: runTarget,
+        topic: runTopic,
+        maxRecords: runMax
+      });
+      setRunLog(prev => prev + res.data.log + '\nExecution Complete.');
+      fetchData();
+    } catch (err) {
+      setRunLog(prev => prev + '\nError: ' + (err.response?.data?.log || err.message));
+    }
+    setRunning(false);
+  };
 
   return (
     <div>
-      <h1>Atlas Ingest Explorer</h1>
+      <h1>Atlas Ingest</h1>
       
+      <div className="control-panel">
+        <h2>Execution Pipeline</h2>
+        <div className="control-row">
+          <select value={runTarget} onChange={e => setRunTarget(e.target.value)}>
+            <option value="papers">Papers (Arxiv)</option>
+            <option value="startups">Startups (YC)</option>
+            <option value="products">Products (PH)</option>
+          </select>
+          <input 
+            type="text" 
+            placeholder="Topic (e.g. AI)" 
+            value={runTopic} 
+            onChange={e => setRunTopic(e.target.value)}
+          />
+          <input 
+            type="number" 
+            placeholder="Max Records" 
+            value={runMax} 
+            onChange={e => setRunMax(e.target.value)}
+            style={{ width: '100px' }}
+          />
+          <button 
+            className="run-button" 
+            onClick={handleRun}
+            disabled={running}
+          >
+            {running ? 'Running...' : 'Run Pipeline'}
+          </button>
+        </div>
+        {runLog && (
+          <div className="status-log">
+            {runLog}
+          </div>
+        )}
+      </div>
+
       <div className="tabs">
         {['startups', 'papers', 'products', 'news', 'jobs'].map(tab => (
           <button
@@ -33,16 +96,16 @@ function App() {
             className={`tab-button ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab}
           </button>
         ))}
       </div>
 
-      <div className="glass-panel">
+      <div className="brutalist-panel">
         {loading ? (
-          <div className="loading">Loading {activeTab}...</div>
+          <div className="loading">Fetching {activeTab}...</div>
         ) : data.length === 0 ? (
-          <div className="loading">No data found. Ensure the pipeline has run.</div>
+          <div className="loading">No records found. Run the pipeline above.</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table>
@@ -52,7 +115,7 @@ function App() {
                     .filter(key => key !== '_id')
                     .slice(0, 6)
                     .map(key => (
-                      <th key={key}>{key.replace(/([A-Z])/g, ' $1').trim()}</th>
+                      <th key={key}>{key}</th>
                     ))}
                 </tr>
               </thead>
@@ -65,7 +128,7 @@ function App() {
                       .map(([key, val], j) => (
                         <td key={j}>
                           {typeof val === 'string' && val.startsWith('http') ? (
-                            <a href={val} target="_blank" rel="noreferrer">Link</a>
+                            <a href={val} target="_blank" rel="noreferrer">LINK</a>
                           ) : (
                             String(val).length > 60 ? String(val).substring(0, 60) + '...' : String(val)
                           )}
