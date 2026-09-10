@@ -31,13 +31,14 @@ class DataExporter:
         df.to_csv(filename, index=False)
         logger.info(f"Exported {len(df)} rows to {filename}")
         
-        mongo_uri = os.getenv("MONGO_URI")
+        mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/atlas_ingest")
         if mongo_uri:
             try:
                 client = MongoClient(mongo_uri)
                 db = client.get_database("atlas_ingest")
                 collection_name = filename.split("/")[-1].split(".")[0]
                 collection = db[collection_name]
+                collection.drop()
                 records = df.to_dict("records")
                 if records:
                     collection.insert_many(records)
