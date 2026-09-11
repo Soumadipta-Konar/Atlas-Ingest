@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import './index.css';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('startups');
@@ -60,6 +60,7 @@ function App() {
             <option value="papers">Papers (Arxiv)</option>
             <option value="startups">Startups (YC)</option>
             <option value="products">Products (PH)</option>
+            <option value="live">News & Jobs (Live)</option>
           </select>
           <input 
             type="text" 

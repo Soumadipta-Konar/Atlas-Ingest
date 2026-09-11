@@ -31,19 +31,19 @@ async def run_phase1(args):
         logger.info(f"Fetching Research Papers for topic: '{args.topic}'")
         papers = await arxiv_crawler.fetch_papers(query=f'all:"{args.topic}"', max_results=args.max_records)
 
-        # Enrich with Papers with Code (concurrent, semaphore-bounded)
+        # Enrich with Semantic Scholar (concurrent, semaphore-bounded)
         sem = asyncio.Semaphore(10)
 
-        async def bound_pwc(p):
+        async def bound_s2(p):
             async with sem:
-                return await arxiv_crawler.enrich_from_paperswithcode(p)
+                return await arxiv_crawler.enrich_from_semantic_scholar(p)
 
         async def bound_correlate(p):
             async with sem:
                 return await arxiv_crawler.correlate_github(p)
 
-        logger.info("Enriching papers from Papers with Code (concurrent)...")
-        papers = await asyncio.gather(*[bound_pwc(p) for p in papers])
+        logger.info("Enriching papers from Semantic Scholar (concurrent)...")
+        papers = await asyncio.gather(*[bound_s2(p) for p in papers])
 
         logger.info("Correlating GitHub stars (concurrent)...")
         papers_with_github = await asyncio.gather(*[bound_correlate(p) for p in papers])
@@ -102,18 +102,20 @@ async def run_phase2(args):
         "RemoteOK": "https://remoteok.com/rss",
         "WeWorkRemotely": "https://weworkremotely.com/categories/remote-programming-jobs.rss",
         "Python.org Jobs": "https://www.python.org/jobs/feed/rss/",
-        "Unstop": "https://unstop.com/feed" # Replaced Working Nomads with Unstop as requested
+        "Unstop": "https://unstop.com/feed"
     }
     
-    all_news = []
-    for name, url in news_sources.items():
-        news = await scraper.scrape_rss_news(url, name)
-        all_news.extend(news)
-        
-    all_jobs = []
-    for name, url in job_sources.items():
-        jobs = await scraper.scrape_rss_jobs(url, name)
-        all_jobs.extend(jobs)
+    # Fix #6: Fetch all news and job sources in parallel using asyncio.gather
+    news_tasks = [scraper.scrape_rss_news(url, name) for name, url in news_sources.items()]
+    job_tasks = [scraper.scrape_rss_jobs(url, name) for name, url in job_sources.items()]
+    
+    news_results, job_results = await asyncio.gather(
+        asyncio.gather(*news_tasks),
+        asyncio.gather(*job_tasks)
+    )
+    
+    all_news = [item for batch in news_results for item in batch]
+    all_jobs = [item for batch in job_results for item in batch]
         
     if all_news:
         df_news = DataExporter.entities_to_df(all_news)
@@ -167,3 +169,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -13,6 +13,8 @@ class BaseCrawler:
         self.semaphore = asyncio.Semaphore(concurrency_limit)
         self.use_playwright = use_playwright
         self._session: Optional[aiohttp.ClientSession] = None
+        self._browser = None
+        self._browser_context = None
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -23,6 +25,17 @@ class BaseCrawler:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(headers=self.headers)
         return self._session
+
+    async def _get_browser_context(self):
+        """Lazily launches one browser and reuses it across all page fetches."""
+        if self._browser is None:
+            from playwright.async_api import async_playwright
+            self._playwright = await async_playwright().start()
+            self._browser = await self._playwright.chromium.launch(headless=True)
+            self._browser_context = await self._browser.new_context(
+                user_agent=self.headers["User-Agent"]
+            )
+        return self._browser_context
 
     @retry(
         stop=stop_after_attempt(3),
@@ -40,19 +53,26 @@ class BaseCrawler:
                 return await response.text()
 
     async def _fetch_playwright(self, url: str) -> str:
-        # Fallback for Cloudflare/JS rendered pages
-        from playwright.async_api import async_playwright
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context(
-                user_agent=self.headers["User-Agent"]
-            )
-            page = await context.new_page()
+        # Reuse a shared browser context instead of launching a new browser per call
+        context = await self._get_browser_context()
+        page = await context.new_page()
+        try:
             await page.goto(url, wait_until="domcontentloaded")
             content = await page.content()
-            await browser.close()
             return content
+        finally:
+            await page.close()
 
     async def close(self):
         if self._session and not self._session.closed:
             await self._session.close()
+        if self._browser_context:
+            await self._browser_context.close()
+            self._browser_context = None
+        if self._browser:
+            await self._browser.close()
+            self._browser = None
+        if hasattr(self, '_playwright') and self._playwright:
+            await self._playwright.stop()
+            self._playwright = None
+
