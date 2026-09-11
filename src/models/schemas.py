@@ -11,6 +11,7 @@ class PricingModel(str, Enum):
     FREEMIUM = "FREEMIUM"
     PAID = "PAID"
     ENTERPRISE = "ENTERPRISE"
+    UNKNOWN = "UNKNOWN"
 
 class Source(BaseModel):
     name: str
@@ -69,7 +70,9 @@ class ResearchPaperContent(BaseModel):
 class ResearchPaperEntity(BaseModel):
     schemaVersion: str = "1.0"
     recordType: Literal["RESEARCH_PAPER"] = "RESEARCH_PAPER"
+    source: Source
     content: ResearchPaperContent
+    collectedAt: datetime
 
 class NewsContent(BaseModel):
     title: str
@@ -97,3 +100,4 @@ class JobEntity(BaseModel):
     source: Optional[Source] = None
     content: JobContent
     collectedAt: Optional[datetime] = None
+

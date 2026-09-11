@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 
 from .base import BaseCrawler
-from src.models.schemas import StartupEntity, StartupContent, Source, ProductEntity, ProductContent, PricingModel, EcommerceProductEntity, EcommerceProductContent
+from src.models.schemas import StartupEntity, StartupContent, StartupData, Source, ProductEntity, ProductContent, PricingModel, EcommerceProductEntity, EcommerceProductContent
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -119,18 +119,18 @@ class DirectoryScraper(BaseCrawler):
                 if len(text_chunk) > 20:
                     async with sem:
                         try:
-                            return await orchestrator.extract_entity(text_chunk, target_schema)
+                            entity = await orchestrator.extract_entity(text_chunk, target_schema)
+                            return (text_chunk, entity)
                         except Exception as e:
                             logger.debug(f"LLM failed to extract entity: {e}")
-                            return None
-                return None
+                            return (text_chunk, None)
+                return (text_chunk, None)
                 
             tasks = [process_item(item) for item in target_items]
-            extracted_entities = await asyncio.gather(*tasks)
+            extracted_results = await asyncio.gather(*tasks)
             
-            # Positional zip — no O(n²) index() lookups
-            for item, entity in zip(target_items, extracted_entities):
-                text_chunk = item.get_text(separator=' | ', strip=True)
+            # Fix #20: Use cached text_chunk from process_item instead of calling get_text() again
+            for text_chunk, entity in extracted_results:
                 if len(text_chunk) <= 20:
                     continue
                 
@@ -157,7 +157,13 @@ class DirectoryScraper(BaseCrawler):
                     elif entity_type == "product":
                         all_results.append(ProductEntity(
                             source=Source(name="HeuristicFallback", url=current_url),
-                            content=ProductContent(startupName=name, pricingModel=PricingModel.FREEMIUM),
+                            content=ProductContent(startupName=name, pricingModel=PricingModel.UNKNOWN),
+                            collectedAt=datetime.now(IST)
+                        ))
+                    elif entity_type == "startup":
+                        all_results.append(StartupEntity(
+                            source=Source(name="HeuristicFallback", url=current_url),
+                            content=StartupContent(entityName=name, data=StartupData()),
                             collectedAt=datetime.now(IST)
                         ))
             
@@ -193,3 +199,4 @@ class DirectoryScraper(BaseCrawler):
                 
         logger.info(f"Successfully extracted {len(unique_results)} valid {entity_type} records (after dedup across {page_num} pages).")
         return unique_results
+

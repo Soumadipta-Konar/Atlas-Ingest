@@ -58,7 +58,7 @@ The pipeline enforces strict **Pydantic JSON schemas** to ensure zero-hallucinat
 |---|---|
 | **Multi-Source Crawling** | ArXiv API, YCombinator, ProductHunt, RSS feeds, Job boards |
 | **LLM Fallback Chain** | Gemini 1.5 Flash → Groq LLaMA 3.1 → DeepSeek (automatic failover) |
-| **Entity Resolution** | Fuzzy Jaro-Winkler deduplication against canonical seed lists |
+| **Entity Resolution** | Fuzzy Levenshtein (WRatio) deduplication against canonical seed lists + pairwise batch dedup |
 | **Token-Safe Chunking** | `tiktoken`-based context window protection before every LLM call |
 | **24h Freshness Filter** | RFC-822 date normalization for news & job signal ingestion |
 
@@ -106,7 +106,7 @@ Prevents 413 Payload Too Large errors. Uses <code>tiktoken</code> to count token
 <details>
 <summary><b>src/resolution/resolver.py</b> — Deterministic Entity Mapping</summary>
 <br>
-Real-world data is messy (e.g., "OpenAI", "Open AI Inc.", "OpenAI Labs"). The fuzzy-matching deduplication engine canonicalizes extracted names against a known trusted seed list using Jaro-Winkler/Levenshtein distances, logging all decisions to an Entity Mapping Log.
+Real-world data is messy (e.g., "OpenAI", "Open AI Inc.", "OpenAI Labs"). The fuzzy-matching deduplication engine canonicalizes extracted names against a known trusted seed list using Levenshtein (WRatio) distances, and also performs pairwise deduplication within scraped batches to merge near-duplicate long-tail entities. All decisions are logged to an Entity Mapping Log.
 </details>
 
 <details>
@@ -142,14 +142,30 @@ playwright install
 
 ### 2. Configure Environment
 
-Create a `.env` file in the project root:
+Copy `.env.example` to `.env` and fill in your values:
 
-```env
-GEMINI_API_KEY=your_gemini_api_key
-GROQ_API_KEY=your_groq_api_key
+```bash
+cp .env.example .env
 ```
 
-> **Note:** The pipeline will automatically fallback between LLM providers. You need at least one valid API key, but providing both ensures maximum resilience.
+```env
+# LLM API Keys (at least one required for batch-extract)
+GEMINI_API_KEY=your_gemini_api_key
+GROQ_API_KEY=your_groq_api_key
+DEEPSEEK_API_KEY=your_deepseek_api_key
+
+# MongoDB (optional — CSV export always works, Mongo is opt-in)
+# MONGO_URI=mongodb+srv://user:password@cluster.mongodb.net/atlas_ingest
+
+# GitHub (optional — for enriching papers with star counts)
+# GITHUB_TOKEN=ghp_your_github_personal_access_token
+
+# Dashboard Server (optional — for client/server dashboard)
+# API_SECRET=your_secret_token_here
+# CORS_ORIGIN=http://localhost:5173
+```
+
+> **Note:** The pipeline will automatically fallback between LLM providers. You need at least one valid API key, but providing all three ensures maximum resilience. MongoDB export is opt-in — it only activates when `MONGO_URI` is explicitly set.
 
 ### 3. Verify Installation
 
@@ -285,13 +301,31 @@ python main.py live-monitor
 All output CSVs are written to the `output/` directory and conform to strict Pydantic-validated schemas. They are ready for direct import into Google Sheets, Airtable, or any downstream analytics tool.
 
 ```
-output/
-├── research_papers.csv      # ArXiv papers with GitHub correlation
-├── startups.csv             # YCombinator startup entities
-├── products.csv             # ProductHunt product entities
-├── news.csv                 # 24h-fresh news signals
-├── jobs.csv                 # 24h-fresh job signals
-└── entity_mappings.csv      # Full entity resolution audit log
+atlas-ingest/
+├── src/                          # Core pipeline modules
+│   ├── crawlers/                 # ArXiv, RSS, directory scrapers
+│   ├── llm/                      # LLM orchestrator & chunking
+│   ├── models/                   # Pydantic schemas
+│   ├── resolution/               # Entity resolver
+│   └── utils/                    # CSV/Mongo exporter
+├── tests/                        # Unit tests
+├── client/                       # React dashboard (Vite)
+├── server/                       # Express API server
+├── main.py                       # CLI entry point
+├── fill_gaps.py                  # Auxiliary: ad-hoc data patching script
+├── generate_csvs.py              # Auxiliary: standalone CSV generation script
+├── pyproject.toml                # Poetry dependencies
+├── requirements.txt              # pip dependencies
+├── .env.example                  # Environment variable template
+├── architecture.md / .pdf        # System design document
+├── LICENSE                       # MIT License
+└── output/
+    ├── research_papers.csv       # ArXiv papers with GitHub correlation
+    ├── startups.csv              # YCombinator startup entities
+    ├── products.csv              # ProductHunt product entities
+    ├── news.csv                  # 24h-fresh news signals
+    ├── jobs.csv                  # 24h-fresh job signals
+    └── entity_mappings.csv       # Full entity resolution audit log
 ```
 
 ---
@@ -322,6 +356,19 @@ python main.py batch-extract --run-products --ecommerce --products-url "https://
 # 7. Use a custom seed file for entity resolution
 python main.py batch-extract --run-startups --max-records 100 --seed-file seeds.json
 ```
+
+---
+
+## Auxiliary Scripts
+
+> **Note:** These scripts are separate, best-effort data-patching utilities. They are **not** part of the core `src/` pipeline — they bypass LLM extraction, Pydantic validation, and entity resolution.
+
+| Script | Description |
+|---|---|
+| `fill_gaps.py` | Ad-hoc data patching script for supplementing output CSVs with additional records from external sources. |
+| `generate_csvs.py` | Standalone CSV generation script for producing output files from hardcoded source lists. |
+
+These were created as one-off patches to hit output targets and should not be relied upon for production use. The CSS selectors and hardcoded URLs they use may break as target sites update their layouts.
 
 ---
 

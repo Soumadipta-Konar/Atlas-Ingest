@@ -59,3 +59,53 @@ class TestMappingLog:
 class TestSeedListSize:
     def test_default_seed_list_has_50_entries(self):
         assert len(DEFAULT_SEED_ENTITIES) == 50
+
+
+class TestDeduplicateBatch:
+    """Tests for Fix #10: pairwise dedup within scraped batches."""
+
+    def test_near_duplicates_get_merged(self, resolver):
+        """Two similar unknown names should be merged to the same canonical."""
+        names = ["Acme AI Solutions", "Acme AI Solution"]
+        mapping = resolver.deduplicate_batch(names)
+        # Both should map to the same canonical name
+        assert mapping["Acme AI Solutions"] == mapping["Acme AI Solution"]
+
+    def test_known_entities_resolve_to_seed(self, resolver):
+        """Known entities should still resolve to their seed list match."""
+        names = ["OpenAI", "openai", "Anthropic AI"]
+        mapping = resolver.deduplicate_batch(names)
+        assert mapping["OpenAI"] == "OpenAI"
+        assert mapping["openai"] == "OpenAI"
+        assert mapping["Anthropic AI"] == "Anthropic"
+
+    def test_distinct_unknowns_stay_separate(self, resolver):
+        """Completely different unknown names should NOT be merged."""
+        names = ["Quantum Computing Labs Alpha", "BioTech Ventures Omega"]
+        mapping = resolver.deduplicate_batch(names)
+        assert mapping["Quantum Computing Labs Alpha"] != mapping["BioTech Ventures Omega"]
+
+    def test_empty_batch(self, resolver):
+        """Empty input should return empty mapping."""
+        mapping = resolver.deduplicate_batch([])
+        assert mapping == {}
+
+    def test_single_item_batch(self, resolver):
+        """Single-item batch should pass through unchanged."""
+        mapping = resolver.deduplicate_batch(["Some Random Startup XYZ"])
+        assert mapping["Some Random Startup XYZ"] == "Some Random Startup XYZ"
+
+    def test_mixed_known_and_unknown_duplicates(self, resolver):
+        """Mix of known and unknown entities with near-duplicates among unknowns."""
+        names = [
+            "OpenAI",
+            "TechFlow AI Platform",
+            "TechFlow AI Platforms",
+            "Anthropic"
+        ]
+        mapping = resolver.deduplicate_batch(names)
+        assert mapping["OpenAI"] == "OpenAI"
+        assert mapping["Anthropic"] == "Anthropic"
+        # Near-duplicate unknowns should merge
+        assert mapping["TechFlow AI Platform"] == mapping["TechFlow AI Platforms"]
+

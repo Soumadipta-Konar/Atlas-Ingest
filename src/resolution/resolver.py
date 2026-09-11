@@ -1,7 +1,7 @@
 import logging
 import json
-from typing import List, Optional
-from thefuzz import process
+from typing import List, Dict, Optional
+from thefuzz import process, fuzz
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,8 @@ DEFAULT_SEED_ENTITIES = [
 ]
 
 class EntityResolver:
-    """Deterministic Entity Resolution using fuzzy matching against a seed list."""
+    """Deterministic Entity Resolution using fuzzy matching against a seed list
+    and pairwise deduplication within scraped batches."""
     
     def __init__(self, seed_entities: List[str] = None, seed_file: str = None):
         if seed_file:
@@ -91,6 +92,48 @@ class EntityResolver:
         self._log_mapping(raw_name, raw_name, 0)
         return raw_name
 
+    def deduplicate_batch(self, names: List[str], threshold: int = 85) -> Dict[str, str]:
+        """Deduplicates a batch of names using pairwise fuzzy comparison.
+        
+        First canonicalizes each name against the seed list, then merges
+        near-duplicates within the unresolved set (names that didn't match
+        any seed entity) so long-tail entities get properly merged.
+        
+        Returns a mapping {original_name: canonical_name}.
+        """
+        mapping: Dict[str, str] = {}
+        
+        # Step 1: Canonicalize against seed list
+        unresolved = []
+        for name in names:
+            canonical = self.canonicalize(name, threshold)
+            mapping[name] = canonical
+            if canonical == name:
+                # Didn't match any seed — mark as unresolved for pairwise dedup
+                unresolved.append(name)
+        
+        # Step 2: Pairwise dedup among unresolved names
+        if len(unresolved) > 1:
+            canonical_groups: List[str] = []  # first-seen representative for each cluster
+            
+            for name in unresolved:
+                clean = name.replace(",", "").replace(".", "").strip()
+                matched = False
+                
+                for representative in canonical_groups:
+                    score = fuzz.WRatio(clean, representative.replace(",", "").replace(".", "").strip())
+                    if score >= threshold:
+                        mapping[name] = representative
+                        self._log_mapping(name, representative, score)
+                        matched = True
+                        break
+                
+                if not matched:
+                    canonical_groups.append(name)
+                    # mapping[name] already == name from step 1
+        
+        return mapping
+
     def _log_mapping(self, raw: str, canonical: str, score: int):
         self.mapping_log.append({
             "Raw Name": raw,
@@ -100,3 +143,4 @@ class EntityResolver:
 
     def get_mapping_log(self) -> List[dict]:
         return self.mapping_log
+

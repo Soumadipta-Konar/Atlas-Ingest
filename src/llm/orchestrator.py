@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from typing import Type, TypeVar, Any, Optional
+from typing import Type, TypeVar, Any, Optional, List
 from pydantic import BaseModel
 import litellm
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter, retry_if_exception_type
@@ -13,14 +13,37 @@ class LLMOrchestrator:
     """Multi-tier LLM fallback chain with schema enforcement."""
     
     # Fallback chain prioritizing cost/speed to complex reasoning
-    MODELS = [
-        "gemini/gemini-1.5-flash-002",
-        "groq/llama-3.1-8b-instant",
+    DEFAULT_MODELS = [
+        "gemini/gemini-2.5-flash",
+        "groq/llama-3.3-70b-versatile",
         "deepseek/deepseek-chat"
     ]
 
     def __init__(self):
         litellm.drop_params = True
+        self.models: List[str] = list(self.DEFAULT_MODELS)
+
+    async def verify_models(self) -> List[str]:
+        """Pings each model at startup and removes dead ones from the chain."""
+        alive = []
+        for model in self.models:
+            try:
+                response = await litellm.acompletion(
+                    model=model,
+                    messages=[{"role": "user", "content": "Say OK"}],
+                    max_tokens=5,
+                )
+                logger.info(f"✓ Model {model} is alive")
+                alive.append(model)
+            except Exception as e:
+                logger.warning(f"✗ Model {model} is unreachable: {e}")
+        
+        if alive:
+            self.models = alive
+        else:
+            logger.error("No models passed health check — keeping defaults as last resort")
+        
+        return alive
         
     @retry(
         stop=stop_after_attempt(3),
@@ -47,7 +70,7 @@ class LLMOrchestrator:
         """Executes the fallback chain to extract structured data."""
         prompt = f"Extract the following text into the exact JSON schema provided.\nText:\n{text_chunk}"
         
-        for model in self.MODELS:
+        for model in self.models:
             try:
                 return await self._call_model(model, prompt, schema)
             except litellm.RateLimitError:

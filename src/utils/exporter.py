@@ -3,7 +3,6 @@ import logging
 from typing import List
 from pydantic import BaseModel
 import os
-from pymongo import MongoClient
 
 logger = logging.getLogger(__name__)
 
@@ -27,21 +26,25 @@ class DataExporter:
         return pd.DataFrame([DataExporter._flatten(e.model_dump()) for e in entities])
 
     @staticmethod
-    def export_csv(df: pd.DataFrame, filename: str):
+    def export_csv(df: pd.DataFrame, filename: str, replace: bool = False):
         df.to_csv(filename, index=False)
         logger.info(f"Exported {len(df)} rows to {filename}")
         
-        mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/atlas_ingest")
+        # MongoDB export is opt-in: only attempt when MONGO_URI is explicitly set
+        mongo_uri = os.getenv("MONGO_URI")
         if mongo_uri:
             try:
-                client = MongoClient(mongo_uri)
+                from pymongo import MongoClient
+                client = MongoClient(mongo_uri, serverSelectionTimeoutMS=3000)
                 db = client.get_database("atlas_ingest")
-                collection_name = filename.split("/")[-1].split(".")[0]
+                collection_name = filename.split("/")[-1].split("\\")[-1].split(".")[0]
                 collection = db[collection_name]
-                collection.drop()
+                if replace:
+                    collection.drop()
                 records = df.to_dict("records")
                 if records:
                     collection.insert_many(records)
+                    logger.info(f"Inserted {len(records)} records into MongoDB collection '{collection_name}'")
             except Exception as e:
                 logger.error(f"Mongo error: {e}")
 
@@ -50,3 +53,4 @@ class DataExporter:
         df = pd.DataFrame(log_data)
         df.to_csv(filename, index=False)
         logger.info(f"Exported Mapping Log to {filename}")
+
